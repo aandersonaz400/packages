@@ -1,0 +1,31 @@
+name: net10 probe
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet --list-sdks
+      - name: Chapter 8 test run (Passed 7)
+        run: |
+          dotnet restore ib/InsightBoard.Tests --use-lock-file
+          dotnet test ib/InsightBoard.Tests -c Release --no-restore -p:CollectCoverage=true -p:Threshold=80 -p:ThresholdType=line -p:ThresholdStat=total
+      - name: Chapter 14 NuGet audit gate (must fail on 11.0.2)
+        id: audit
+        continue-on-error: true
+        run: dotnet restore src/MonthPay -p:NuGetAuditMode=all -p:WarningsAsErrors=NU1900%3BNU1903%3BNU1904
+      - name: The audit step must have failed
+        run: |
+          echo "audit outcome: ${{ steps.audit.outcome }}"
+          test "${{ steps.audit.outcome }}" = "failure"
